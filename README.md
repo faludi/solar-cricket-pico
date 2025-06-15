@@ -1,0 +1,1 @@
+Solar-powered cricket simulator using Raspberry Pi Pico
