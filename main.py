@@ -29,7 +29,7 @@ light_sensor = ADC(26)  # ADC0 on GP26
 #define DAYSLEEP 15     // minutes to sleep during daylight
 #define SHORTSLEEP 2    // minutes to sleep during nightdelay and chirpwindow
 
-enum {DAY, NIGHT_WAIT, NIGHT_CHIRP, NIGHT_SLEEP};
+# enum {DAY, NIGHT_WAIT, NIGHT_CHIRP, NIGHT_SLEEP};
 
 personal_freq_delta = randrange(200) - 99  # different pitch every time
 chirp_data = [
