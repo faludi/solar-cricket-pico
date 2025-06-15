@@ -18,6 +18,19 @@ freq(125000000)  # use default CPU freq
 seed()  # start with a truly random seed
 pwm_out = PWM(Pin(20), freq=10, duty_u16=0)  # can't do freq=0
 led = Pin("LED", Pin.OUT)
+light_sensor = ADC(26)  # ADC0 on GP26
+
+#define SENSORPIN A0   // analog input for light level
+#define LEDPIN 13      // digital output for status LED
+#define NIGHTDELAY 30   // minutes after nightfall to wait before chirping
+#define CHIRPWINDOW 60  // chip for this number of minutes each night
+#define MINLIGHT 20     // minimum amount of light to trigger night modes (0 to 1023)
+#define NIGHTSLEEP 960  // minutes to sleep before checking for daylight
+#define DAYSLEEP 15     // minutes to sleep during daylight
+#define SHORTSLEEP 2    // minutes to sleep during nightdelay and chirpwindow
+
+enum {DAY, NIGHT_WAIT, NIGHT_CHIRP, NIGHT_SLEEP};
+
 personal_freq_delta = randrange(200) - 99  # different pitch every time
 chirp_data = [
     # cadence, duty_u16, freq
@@ -39,6 +52,10 @@ def chirp(pwm_channel):
         pwm_channel.duty_u16(0)
         pwm_channel.freq(10)
         sleep_ms(cadence_ms)
+
+def light_level():
+    # return a number from 0 (dark) to 65535 (bright)
+    return light_sensor.read_u16()
  
  
 led.value(0)  # led off at start; blinks if chirping
@@ -46,6 +63,7 @@ led.value(0)  # led off at start; blinks if chirping
 sleep_ms(randrange(2000))
  
 while True:
+    print("Light level:", light_level())
     loop_start_ms = ticks_ms()
     sleep_ms(5)  # tiny delay to stop the main loop from thrashing
     led.value(1)
