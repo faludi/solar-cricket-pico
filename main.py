@@ -10,7 +10,7 @@
 # add simple beep and simple blink
 
  
-from machine import Pin, PWM, ADC, freq
+from machine import Pin, PWM, ADC, freq, lightsleep, deepsleep
 from time import sleep_ms, ticks_ms, ticks_diff
 from random import seed, randrange
  
