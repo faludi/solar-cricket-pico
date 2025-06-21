@@ -2,7 +2,6 @@
 
 
 # TODOS:
-# create a workspace for this project
 # chirp only at night and only for the window period
 # create modes for DAY, NIGHT_WAIT, NIGHT_CHIRP, NIGHT_SLEEP
 # create state machine: checkState / doActions / simpleBlink
@@ -20,16 +19,16 @@ pwm_out = PWM(Pin(20), freq=10, duty_u16=0)  # can't do freq=0
 led = Pin("LED", Pin.OUT)
 light_sensor = ADC(26)  # ADC0 on GP26
 
-#define SENSORPIN A0   // analog input for light level
-#define LEDPIN 13      // digital output for status LED
-#define NIGHTDELAY 30   // minutes after nightfall to wait before chirping
-#define CHIRPWINDOW 60  // chip for this number of minutes each night
-#define MINLIGHT 20     // minimum amount of light to trigger night modes (0 to 1023)
-#define NIGHTSLEEP 960  // minutes to sleep before checking for daylight
-#define DAYSLEEP 15     // minutes to sleep during daylight
-#define SHORTSLEEP 2    // minutes to sleep during nightdelay and chirpwindow
+SENSORPIN A0   # analog input for light level
+LEDPIN 13      # digital output for status LED
+NIGHTDELAY 30   # minutes after nightfall to wait before chirping
+CHIRPWINDOW 60  # chip for this number of minutes each night
+MINLIGHT 20     # minimum amount of light to trigger night modes (0 to 1023)
+NIGHTSLEEP 960  # minutes to sleep before checking for daylight
+DAYSLEEP 15     # minutes to sleep during daylight
+SHORTSLEEP 2    # minutes to sleep during nightdelay and chirpwindow
 
-# enum {DAY, NIGHT_WAIT, NIGHT_CHIRP, NIGHT_SLEEP};
+MODE = enumerate(['DAY', 'NIGHT_WAIT', 'NIGHT_CHIRP', 'NIGHT_SLEEP'])
 
 personal_freq_delta = randrange(200) - 99  # different pitch every time
 chirp_data = [
