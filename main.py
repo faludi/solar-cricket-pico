@@ -19,12 +19,6 @@ mode='DAY'  # initial mode
 
 sunset_time = 0  # time of sunset in milliseconds
 
-# tim_day = Timer(-1)  # timer for day/night transitions
-# tim_chirp = Timer(-1)  # timer for chirping
-# tim_night_delay = Timer(-1)  # timer for night delay
-# tim_nightsleep = Timer(-1)  # timer for night sleep
-
-
 personal_freq_delta = randrange(200) - 99  # different pitch every time
 chirp_data = [
     # cadence, duty_u16, freq
@@ -106,23 +100,29 @@ def check_state(mode):
 def do_actions(mode):
     if mode == 'DAY':
         print("day sleep...")
+        sleep_ms(10)  # wait for serial to complete
         lightsleep(DAYSLEEP * 60 * 1000)  # sleep during the day
     elif mode == 'DUSK':
         print("dusk sleep...")
+        sleep_ms(10)  # wait for serial to complete
         lightsleep(SHORTSLEEP * 60 * 1000) # sleep during night delay
     elif mode == 'NIGHT_CHIRP':
         print("chirping")
         cricket()
+        sleep_ms(10)  # wait for serial to complete
         lightsleep(randrange(3000,30000))  # sleep for random period
     elif mode == 'NIGHT_SLEEP':
         print("night sleep...")
+        sleep_ms(10)  # wait for serial to complete
         for hour in range(NIGHTSLEEP):
-            lightsleep(60 * 1000)  # sleep one hour repeatedly
+            lightsleep(60 * 60 * 1000)  # sleep one hour repeatedly
         print("night sleep done, waking up")
     else:
         print("mode unknown")
  
 LED.value(0)  # led off at start; blinks each cycle
+
+beep(SPEAKER, 4000, 250)  # beep to indicate startup
 
 print("Waiting 5 seconds for startup...")
 print("Press Ctrl-C to quit...")
@@ -132,9 +132,7 @@ print("Solar Cricket v1.0 starting...")
 # Main loop
 while True:
     blink(LED, 2, 100);
-    print("Light level:", light_level())
+    if mode == 'DAY' or mode == 'DUSK': print("Light level:", light_level())
     mode=check_state(mode);
     print("Current mode:", mode)
     do_actions(mode);
-    print("Press Ctrl-C to quit...")
-    sleep_ms(1000)  # give time to quit manually
