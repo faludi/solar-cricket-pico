@@ -6,7 +6,7 @@ VERSION = "1.0.1"  # version of the Solar Cricket firmware
 SPEAKER = PWM(Pin(20), freq=10, duty_u16=0)  # can't do freq=0
 SENSOR = ADC(26)   # analog input for light level
 LED = Pin("LED", Pin.OUT)      # digital output for status LED
-DEBUG_LED = Pin(16, Pin.OUT)  # digital output for debug LED
+DEBUG_LED = Pin(13, Pin.OUT)  # digital output for debug LED
 DEBUG = True  # set to False to disable debug LED
 DUSK_DELAY = 30   # minutes after nightfall to wait before chirping
 CHIRP_WINDOW = 30  # chip for this number of minutes each night
@@ -113,6 +113,8 @@ def do_actions(mode):
         sleep_ms(10)  # wait for serial to complete
         lightsleep(randrange(10000,300000))  # sleep for random period
     elif mode == 'NIGHT_SLEEP':
+        if DEBUG: #turn off debug LED
+            DEBUG_LED.off()
         print("night sleep...")
         sleep_ms(10)  # wait for serial to complete
         for hour in range(NIGHT_SLEEP):
