@@ -2,8 +2,10 @@ from machine import Pin, PWM, ADC, freq, lightsleep
 from time import sleep_ms, ticks_ms
 from random import seed, randrange
 
-VERSION = "1.0.1"  # version of the Solar Cricket firmware
+VERSION = "1.0.2"  # version of the Solar Cricket firmware
 SPEAKER = PWM(Pin(20), freq=10, duty_u16=0)  # can't do freq=0
+SPEAKER_ENABLE = Pin(12, Pin.OUT)  # enable pin for speaker
+SPEAKER_ENABLE.value(0)  # start with speaker off
 SENSOR = ADC(26)   # analog input for light level
 LED = Pin("LED", Pin.OUT)      # digital output for status LED
 DEBUG_LED = Pin(13, Pin.OUT)  # digital output for debug LED
@@ -41,11 +43,13 @@ def blink(led, count, period_ms):
 
 def beep(pwm_channel, freq, duration_ms):
     """Beep a PWM channel at a given frequency for a duration."""
+    SPEAKER_ENABLE.value(1)  # enable the speaker
     pwm_channel.freq(freq)
     pwm_channel.duty_u16(32768)  # half duty cycle
     sleep_ms(duration_ms)
     pwm_channel.duty_u16(0)  # turn off the PWM
     pwm_channel.freq(10)  # reset frequency to a low value
+    SPEAKER_ENABLE.value(0) # disable the speaker
 
 def cricket():
     chirp(SPEAKER)
@@ -54,6 +58,7 @@ def cricket():
  
 def chirp(pwm_channel):
     # audio generation based on cricket simulator - scruss, 2024-02
+    SPEAKER_ENABLE.value(1)  # enable the speaker
     for peep in chirp_data:
         pwm_channel.freq(peep[2])
         pwm_channel.duty_u16(peep[1])
@@ -62,6 +67,7 @@ def chirp(pwm_channel):
         pwm_channel.duty_u16(0)
         pwm_channel.freq(10)
         sleep_ms(cadence_ms)
+    SPEAKER_ENABLE.value(0) # disable the speaker
 
 def light_level():
     # return a number from 0 (dark) to 65535 (bright)
