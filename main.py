@@ -12,7 +12,7 @@ DEBUG_LED = Pin(13, Pin.OUT)  # digital output for debug LED
 DEBUG = True  # set to False to disable debug LED
 DUSK_DELAY = 30   # minutes after nightfall to wait before chirping
 CHIRP_WINDOW = 30  # chip for this number of minutes each night
-MIN_LIGHT = 14000     # minimum amount of light to trigger night modes (0 to 65536)
+MIN_LIGHT = 15000     # minimum amount of light to trigger night modes (0 to 65536)
 NIGHT_SLEEP = 15  # hours to sleep before checking for daylight
 DAY_SLEEP = 15     # minutes to sleep during daylight
 SHORT_SLEEP = 2    # minutes to sleep during nightdelay and chirpwindow
@@ -141,13 +141,10 @@ print(f"Solar Cricket v{VERSION} starting...")
 
 # Main loop
 while True:
-    cricket()
-    sleep_ms(1000)
-
-    # blink(LED, 2, 100)
-    # if DEBUG: #toggle debug LED
-    #     DEBUG_LED.toggle()
-    # mode=check_state(mode)
-    # if mode == 'DAY' or mode == 'DUSK': print("Light level:", light_level())
-    # print("Current mode:", mode)
-    # do_actions(mode);
+    blink(LED, 2, 100)
+    if DEBUG: #toggle debug LED
+        DEBUG_LED.toggle()
+    mode=check_state(mode)
+    if mode == 'DAY' or mode == 'DUSK': print("Light level:", light_level())
+    print("Current mode:", mode)
+    do_actions(mode);
