@@ -2,7 +2,7 @@ from machine import Pin, PWM, ADC, freq, lightsleep
 from time import sleep_ms, ticks_ms
 from random import seed, randrange
 
-VERSION = "1.1.3"  # version of the Solar Cricket firmware
+VERSION = "1.1.4"  # version of the Solar Cricket firmware
 SPEAKER = PWM(Pin(20), freq=10, duty_u16=0)  # can't do freq=0
 SPEAKER_ENABLE = Pin(12, Pin.OUT)  # enable pin for speaker
 SPEAKER_ENABLE.value(0)  # start with speaker off
@@ -16,7 +16,7 @@ CHIRP_WINDOW_HIGH = 40 # maximum chirp window in minutes
 DEFAULT_LIGHT_HIGH = 50000  # default high light level
 DEFAULT_LIGHT_LOW = 1000   # default low light level
 FORCE_UPDATE_DELAY = 28 # hours before forcing light level average update
-NIGHT_SLEEP = 15  # hours to sleep before checking for daylight
+NIGHT_SLEEP = 22  # hours to sleep before checking for daylight
 DAY_SLEEP = 15     # minutes to sleep during daylight
 SHORT_SLEEP = 2    # minutes to sleep during nightdelay and chirpwindow
 
