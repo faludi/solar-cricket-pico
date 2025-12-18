@@ -6,6 +6,7 @@ import analogio
 import random
 import audiomp3
 import audiopwmio
+import os
 
 MP3_VERSION = True
 
@@ -20,7 +21,7 @@ def sleep_ms(ms):
 def ticks_ms():
     return int(time.monotonic() * 1000)
 
-# lightsleep is not supported on CircuitPython RP2040
+# lightsleep is not supported on CircuitPython RP2350
 def lightsleep(ms):
     time.sleep(ms / 1000.0)
 
@@ -56,17 +57,17 @@ DEBUG = True
 # Constants
 # -------------------------------------------------------------------
 
-VERSION = "1.1.6"
+VERSION = "1.1.9"
 
 DUSK_DELAY = 30   # min
-CHIRP_WINDOW_LOW = 20
-CHIRP_WINDOW_HIGH = 40
+CHIRP_WINDOW_LOW = 20 # min
+CHIRP_WINDOW_HIGH = 40 # min
 DEFAULT_LIGHT_HIGH = 50000
 DEFAULT_LIGHT_LOW = 1000
 FORCE_UPDATE_DELAY = 28 # hours
-NIGHT_SLEEP = 22
-DAY_SLEEP = 15
-SHORT_SLEEP = 2
+NIGHT_SLEEP = 22 # hours
+DAY_SLEEP = 15 # min
+SHORT_SLEEP = 2 # min
 
 mode = "DAY"
 sunset_time = 0
@@ -75,6 +76,7 @@ chirp_window = 30
 print("Chirp window is", chirp_window)
 
 chirp_file = "1-cricket.mp3"
+chirp_samples = 14976
 
 personal_freq_delta = random.randrange(200) - 99
 
@@ -87,38 +89,19 @@ chirp_data = [
 
 cadence_ms = 9
 
-cricket_files = [
-    "1-cricket.mp3",
-    "2-cricket.mp3",
-    "3-cricket.mp3",
-    "4-cricket.mp3",
-    "5-cricket.mp3",
-    "6-cricket.mp3",
-    "7-cricket.mp3",
-    "8-cricket.mp3",
-    "9-cricket.mp3",
-    "10-cricket.mp3",
-    "11-cricket.mp3",
-    "12-cricket.mp3",
-    "13-cricket.mp3",
-    "14-cricket.mp3",
-    "15-cricket.mp3",
-    "16-cricket.mp3",
-    "17-cricket.mp3",
-    "18-cricket.mp3",
-    "19-cricket.mp3",
-    "20-cricket.mp3",
-    "21-cricket.mp3",
-    "22-cricket.mp3",
-    "23-cricket.mp3",
-    "24-cricket.mp3",
-    "25-cricket.mp3",
-    "26-cricket.mp3",
-    "27-cricket.mp3",
-    "28-cricket.mp3",
-    "29-cricket.mp3",
-    "30-cricket.mp3",
-]
+def scan_cricket_files():
+    global cricket_files
+    dir_list = os.listdir("sounds")
+    cricket_files = {}
+    for file in dir_list:
+        if file.endswith("cricket.mp3") and not file.startswith("."):
+            decoder = audiomp3.MP3Decoder(open("sounds/" + file, "rb"))
+            audio.play(decoder)
+            while audio.playing:
+                pass
+            file_samples = decoder.samples_decoded
+            print("Played:", file, "Samples:", file_samples)
+            cricket_files[file] = file_samples
 
 # -------------------------------------------------------------------
 # Light level averaging
@@ -212,12 +195,16 @@ def chirp(pwm):
     SPEAKER_ENABLE.value = False
 
 def mp3_chirp():
+    global chirp_file, chirp_samples
+    start_time = time.monotonic()
     SPEAKER_ENABLE.value = True
     decoder = audiomp3.MP3Decoder(open("sounds/"+chirp_file, "rb"))
-    decoder.sample_rate =48000 # + personal_freq_delta * 10
+    decoder.sample_rate = random.randrange(-5000, 5000) + decoder.sample_rate
+    print("MP3 sample rate:", decoder.sample_rate)
     audio.play(decoder)
     while audio.playing:
-        pass
+        if time.monotonic() - start_time > chirp_samples/decoder.sample_rate:
+            break
     SPEAKER_ENABLE.value = False
 
 def cricket():
@@ -230,6 +217,13 @@ def cricket():
         sleep_ms(random.randrange(200, 250))
         chirp(SPEAKER)
 
+def store_cricket(filename):
+    try:
+        with open("last_cricket.txt", "w") as f:
+            f.write(f"{chirp_file}\n")
+    except Exception as e:
+        print("Error storing last_cricket.txt", e)
+
 def light_level():
     return SENSOR.value  # 0–65535
 
@@ -238,7 +232,7 @@ def light_level():
 # -------------------------------------------------------------------
 
 def check_state(mode):
-    global sunset_time, chirp_window, chirp_file
+    global sunset_time, chirp_window, chirp_file, chirp_samples
 
     min_light = light_levels.read_min_light()
 
@@ -261,8 +255,10 @@ def check_state(mode):
 
         if ticks_ms() - sunset_time > DUSK_DELAY * 60000:
             if MP3_VERSION:
-                chirp_file = random.choice(cricket_files)
+                chirp_file, chirp_samples = random.choice(list(cricket_files.items()))
                 print("Selected chirp file:", chirp_file)
+                print("Selected chirp samples:", chirp_samples)
+                store_cricket(chirp_file)
             chirp_window = random.randrange(CHIRP_WINDOW_LOW, CHIRP_WINDOW_HIGH)
             print("Night chirp window:", chirp_window)
             return "NIGHT_CHIRP"
@@ -314,8 +310,8 @@ if MP3_VERSION:
 else:
     beep(SPEAKER, 4000, 250)
 
-print("Waiting 5 seconds...")
-sleep_ms(5000)
+print("Scanning cricket sound files...")
+scan_cricket_files()
 print("Solar Cricket v", VERSION, "starting...")
 
 # -------------------------------------------------------------------
