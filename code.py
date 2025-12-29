@@ -57,7 +57,7 @@ DEBUG = True
 # Constants
 # -------------------------------------------------------------------
 
-VERSION = "1.1.9"
+VERSION = "1.1.10"
 
 DUSK_DELAY = 30   # min
 CHIRP_WINDOW_LOW = 20 # min
@@ -199,7 +199,7 @@ def mp3_chirp():
     start_time = time.monotonic()
     SPEAKER_ENABLE.value = True
     decoder = audiomp3.MP3Decoder(open("sounds/"+chirp_file, "rb"))
-    decoder.sample_rate = random.randrange(-5000, 5000) + decoder.sample_rate
+    decoder.sample_rate = random.randrange(-2500, 2500) + decoder.sample_rate
     print("MP3 sample rate:", decoder.sample_rate)
     audio.play(decoder)
     while audio.playing:
