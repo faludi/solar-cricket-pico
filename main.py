@@ -4,7 +4,7 @@ from random import seed, randrange, random
 import math
 from picodfplayer import DFPlayer
 
-VERSION = "1.2.1"  # version of the Solar Cricket firmware
+VERSION = "1.2.2"  # version of the Solar Cricket firmware
 DFPLAYER_VERSION = True  # set to False to use PWM chirps instead of DFPlayer
 SENSOR = ADC(26)   # analog input for light level
 LED = Pin("LED", Pin.OUT)      # digital output for status LED
