@@ -1,43 +1,57 @@
 from machine import Pin, PWM, ADC, freq, lightsleep
 from time import sleep_ms, ticks_ms
-from random import seed, randrange
+from random import seed, randrange, random
+import math
+from picodfplayer import DFPlayer
 
-VERSION = "1.1.4"  # version of the Solar Cricket firmware
-SPEAKER = PWM(Pin(20), freq=10, duty_u16=0)  # can't do freq=0
-SPEAKER_ENABLE = Pin(12, Pin.OUT)  # enable pin for speaker
-SPEAKER_ENABLE.value(0)  # start with speaker off
+VERSION = "1.2.0"  # version of the Solar Cricket firmware
+DFPLAYER_VERSION = True  # set to False to use PWM chirps instead of DFPlayer
+# SPEAKER = PWM(Pin(20), freq=10, duty_u16=0)  # can't do freq=0
+# SPEAKER_ENABLE = Pin(12, Pin.OUT)  # enable pin for speaker
+# SPEAKER_ENABLE.value(0)  # start with speaker off
 SENSOR = ADC(26)   # analog input for light level
 LED = Pin("LED", Pin.OUT)      # digital output for status LED
-DEBUG_LED = Pin(13, Pin.OUT)  # digital output for debug LED
-DEBUG = True  # set to False to disable debug LED
-DUSK_DELAY = 30   # minutes after nightfall to wait before chirping
+# DEBUG_LED = Pin(13, Pin.OUT)  # digital output for debug LED
+# DEBUG = True  # set to False to disable debug LED
+DUSK_DELAY = 1 #30   # minutes after nightfall to wait before chirping
 CHIRP_WINDOW_LOW = 20  # minimum chirp window in minutes
 CHIRP_WINDOW_HIGH = 40 # maximum chirp window in minutes
 DEFAULT_LIGHT_HIGH = 50000  # default high light level
 DEFAULT_LIGHT_LOW = 1000   # default low light level
 FORCE_UPDATE_DELAY = 28 # hours before forcing light level average update
 NIGHT_SLEEP = 22  # hours to sleep before checking for daylight
-DAY_SLEEP = 15     # minutes to sleep during daylight
-SHORT_SLEEP = 2    # minutes to sleep during nightdelay and chirpwindow
+DAY_SLEEP = 1 #15     # minutes to sleep during daylight
+SHORT_SLEEP = 1 #2    # minutes to sleep during nightdelay and chirpwindow
 
 mode='DAY'  # initial mode
 sunset_time = 0  # time of sunset in milliseconds
+current_chirp = 1  # index of current chirp file (DFPlayer index starts at 1)
 freq(125000000)  # use default CPU freq
 seed()  # start with a truly random seed
 
 chirp_window = 30  # initial chirp window in minutes (randomised later)
 print(f"Chirp window is {chirp_window} minutes")
 
-personal_freq_delta = randrange(200) - 99  # different pitch every time
-chirp_data = [
-    # cadence, duty_u16, freq
-    # there is a cadence=1 silence after each of these
-    [3, 16384, 4568 + personal_freq_delta],
-    [4, 32768, 4824 + personal_freq_delta],
-    [4, 32768, 4824 + personal_freq_delta],
-    [3, 16384, 4568 + personal_freq_delta],
-]
-cadence_ms = 9  # length multiplier for playback
+# personal_freq_delta = randrange(200) - 99  # different pitch every time
+# chirp_data = [
+#     # cadence, duty_u16, freq
+#     # there is a cadence=1 silence after each of these
+#     [3, 16384, 4568 + personal_freq_delta],
+#     [4, 32768, 4824 + personal_freq_delta],
+#     [4, 32768, 4824 + personal_freq_delta],
+#     [3, 16384, 4568 + personal_freq_delta],
+# ]
+# cadence_ms = 9  # length multiplier for playback
+
+#Constants. Change these if DFPlayer is connected to other pins.
+UART_INSTANCE=0
+TX_PIN = 16
+RX_PIN=17
+BUSY_PIN=6
+
+#Create player instance
+# player=DFPlayer(UART_INSTANCE, TX_PIN, RX_PIN, BUSY_PIN)
+
 
 class LightLevels:
     def __init__(self):
@@ -112,7 +126,19 @@ class LightLevels:
 
 light_levels = LightLevels()
 
+def randn_int(a, b):
+    mu = (a + b) * 0.5
+    sigma = (b - a) / 6.0  # ~99.7% inside bounds
 
+    while 1:
+        u1 = random()
+        if u1 > 0.0:
+            u2 = random()
+            z = math.sqrt(-2.0 * math.log(u1)) * math.cos(6.283185307179586 * u2)
+            x = int(mu + z * sigma + 0.5)  # round to nearest int
+            if a <= x <= b:
+                return x
+            
 def blink(led, count, period_ms):
     """Blink an LED a number of times with a given period."""
     for _ in range(count):
@@ -123,35 +149,63 @@ def blink(led, count, period_ms):
 
 def beep(pwm_channel, freq, duration_ms):
     """Beep a PWM channel at a given frequency for a duration."""
-    SPEAKER_ENABLE.value(1)  # enable the speaker
+    # SPEAKER_ENABLE.value(1)  # enable the speaker
     pwm_channel.freq(freq)
     pwm_channel.duty_u16(32768)  # half duty cycle
     sleep_ms(duration_ms)
     pwm_channel.duty_u16(0)  # turn off the PWM
     pwm_channel.freq(10)  # reset frequency to a low value
-    SPEAKER_ENABLE.value(0) # disable the speaker
+    # SPEAKER_ENABLE.value(0) # disable the speaker
 
 def cricket():
-    chirp(SPEAKER)
-    sleep_ms(randrange(200,250))
-    chirp(SPEAKER)
+    if DFPLAYER_VERSION:
+        #Create player instance each time due to lightsleep()'s interfering with UART
+        player=DFPlayer(UART_INSTANCE, TX_PIN, RX_PIN, BUSY_PIN)
+        chirp_number = randn_int(1, 5)  # play 1-5 chirps with a normal distribution
+        if chirp_number is not None:
+            for i in range(chirp_number):
+                mp3_chirp(player)
+                sleep_ms(randrange(200, 250))
+    else:
+        pass
+        # chirp(SPEAKER)
+        # sleep_ms(randrange(200, 250))
+        # chirp(SPEAKER)
  
-def chirp(pwm_channel):
-    # audio generation based on cricket simulator - scruss, 2024-02
-    SPEAKER_ENABLE.value(1)  # enable the speaker
-    for peep in chirp_data:
-        pwm_channel.freq(peep[2])
-        pwm_channel.duty_u16(peep[1])
-        sleep_ms(cadence_ms * peep[0])
-        # short silence
-        pwm_channel.duty_u16(0)
-        pwm_channel.freq(10)
-        sleep_ms(cadence_ms)
-    SPEAKER_ENABLE.value(0) # disable the speaker
+# def chirp(pwm_channel):
+#     # audio generation based on cricket simulator - scruss, 2024-02
+#     # SPEAKER_ENABLE.value(1)  # enable the speaker
+#     for peep in chirp_data:
+#         pwm_channel.freq(peep[2])
+#         pwm_channel.duty_u16(peep[1])
+#         sleep_ms(cadence_ms * peep[0])
+#         # short silence
+#         pwm_channel.duty_u16(0)
+#         pwm_channel.freq(10)
+#         sleep_ms(cadence_ms)
+#     # SPEAKER_ENABLE.value(0) # disable the speaker
+
+def mp3_chirp(player):
+    # SPEAKER_ENABLE.value(1)
+    #Volume can be between 0-30
+    # player.setVolume(30)
+    # player.setEQ(2)
+    print(f"Playing chirp {current_chirp}")
+    player.playTrack(1,current_chirp)
+    while player.queryBusy():
+        sleep_ms(10)
+    # SPEAKER_ENABLE.value(0)
 
 def light_level():
     # return a number from 0 (dark) to 65535 (bright)
     return SENSOR.read_u16()
+
+def store_cricket(filename):
+    try:
+        with open("last_cricket.txt", "w") as f:
+            f.write(f"{current_chirp}\n")
+    except Exception as e:
+        print("Error storing last_cricket.txt", e)
 
 def check_state(mode):
     global sunset_time, chirp_window
@@ -208,8 +262,8 @@ def do_actions(mode):
         sleep_ms(10)  # wait for serial to complete
         lightsleep(randrange(10000,300000))  # sleep for random period
     elif mode == 'NIGHT_SLEEP':
-        if DEBUG: #turn off debug LED
-            DEBUG_LED.off()
+        # if DEBUG: #turn off debug LED
+        #     DEBUG_LED.off()
         print("night sleep...")
         sleep_ms(10)  # wait for serial to complete
         for hour in range(NIGHT_SLEEP):
@@ -222,7 +276,10 @@ def do_actions(mode):
         print("mode unknown")
  
 LED.value(0)  # led off at start; blinks each cycle
-beep(SPEAKER, 4000, 250)  # beep to indicate startup
+# beep(SPEAKER, 4000, 250)  # beep to indicate startup
+# player.playTrack(1,1)
+player=DFPlayer(UART_INSTANCE, TX_PIN, RX_PIN, BUSY_PIN)
+mp3_chirp(player)  # play a chirp to indicate startup
 
 print("Waiting 5 seconds for startup...")
 print("Press Ctrl-C to quit...")
@@ -232,8 +289,8 @@ print(f"Solar Cricket v{VERSION} starting...")
 # Main loop
 while True:
     blink(LED, 2, 100)
-    if DEBUG: #toggle debug LED
-        DEBUG_LED.toggle()
+    # if DEBUG: #toggle debug LED
+    #     DEBUG_LED.toggle()
     light_levels.update(light_level())
     mode=check_state(mode)
     if mode == 'DAY' or mode == 'DUSK': print("Light level:", light_level())
