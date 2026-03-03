@@ -127,6 +127,18 @@ def beep(pwm_channel, freq, duration_ms):
     pwm_channel.duty_u16(0)  # turn off the PWM
     pwm_channel.freq(10)  # reset frequency to a low value
 
+def count_files(folder=1):
+    """Count the number of files on the DFPlayer."""
+    #Create player instance each time due to lightsleep()'s interfering with UART
+    player=DFPlayer(UART_INSTANCE, TX_PIN, RX_PIN, BUSY_PIN)
+    file_count_raw = player.sendcmd(0x4E, 0, folder) # query total number of tracks in given folder
+    print("Raw file count response:", file_count_raw.hex(' ') if file_count_raw else "None")
+    if file_count_raw is not None and len(file_count_raw) >= 17:
+        return file_count_raw[16]
+    else:
+        print("Failed to read file count from DFPlayer.")
+        return 0
+
 def cricket():
     #Create player instance each time due to lightsleep()'s interfering with UART
     player=DFPlayer(UART_INSTANCE, TX_PIN, RX_PIN, BUSY_PIN)
@@ -154,7 +166,7 @@ def store_cricket(filename):
         print("Error storing last_cricket.txt", e)
 
 def check_state(mode):
-    global sunset_time, chirp_window
+    global sunset_time, chirp_window, current_chirp
     min_light = light_levels.read_min_light()
     if ticks_ms() > sunset_time + (FORCE_UPDATE_DELAY * 60 * 60 * 1000):
         light_levels.increase_low_avg()  # doubles the low average
@@ -172,6 +184,7 @@ def check_state(mode):
         # Check if it's time to start chirping
         elif (ticks_ms() - sunset_time) > DUSK_DELAY * 60 * 1000:
             print("It's dark, switching to NIGHT_CHIRP")
+            current_chirp = randn_int(1, count_files(folder=1))  # select a random chirp file
             chirp_window = randrange(CHIRP_WINDOW_LOW, CHIRP_WINDOW_HIGH)  # random chirp window
             print(f"Chirp window is {chirp_window} minutes")
             mode = 'NIGHT_CHIRP'
@@ -223,6 +236,7 @@ LED.value(0)  # led off at start; blinks each cycle
 
 player=DFPlayer(UART_INSTANCE, TX_PIN, RX_PIN, BUSY_PIN)
 mp3_chirp(player)  # play a chirp to indicate startup
+
 
 print("Waiting 5 seconds for startup...")
 print("Press Ctrl-C to quit...")
