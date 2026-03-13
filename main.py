@@ -4,7 +4,7 @@ from random import seed, randrange, random
 import math
 from picodfplayer import DFPlayer
 
-VERSION = "1.2.2"  # version of the Solar Cricket firmware
+VERSION = "1.2.3"  # version of the Solar Cricket firmware
 DFPLAYER_VERSION = True  # set to False to use PWM chirps instead of DFPlayer
 SENSOR = ADC(26)   # analog input for light level
 LED = Pin("LED", Pin.OUT)      # digital output for status LED
@@ -146,7 +146,7 @@ def cricket():
     if chirp_number is not None:
         for i in range(chirp_number):
             mp3_chirp(player)
-            sleep_ms(randrange(200, 250))
+            sleep_ms(randrange(100, 150))
 
 def mp3_chirp(player):
     print(f"Playing chirp {current_chirp}")
@@ -158,7 +158,7 @@ def light_level():
     # return an integer from 0 (dark) to 65535 (bright)
     return SENSOR.read_u16()
 
-def store_cricket(filename):
+def store_cricket(current_chirp):
     try:
         with open("last_cricket.txt", "w") as f:
             f.write(f"{current_chirp}\n")
@@ -185,6 +185,7 @@ def check_state(mode):
         elif (ticks_ms() - sunset_time) > DUSK_DELAY * 60 * 1000:
             print("It's dark, switching to NIGHT_CHIRP")
             current_chirp = randn_int(1, count_files(folder=1))  # select a random chirp file
+            store_cricket(current_chirp)  # store the last chirp number to file
             chirp_window = randrange(CHIRP_WINDOW_LOW, CHIRP_WINDOW_HIGH)  # random chirp window
             print(f"Chirp window is {chirp_window} minutes")
             mode = 'NIGHT_CHIRP'
