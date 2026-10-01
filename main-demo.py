@@ -1,22 +1,32 @@
 from machine import Pin, PWM, ADC, freq, lightsleep
 from time import sleep_ms, ticks_ms
-from random import seed, randrange, random
+from random import seed, randrange, random, uniform
 import math
 from picodfplayer import DFPlayer
 
-VERSION = "1.2.3"  # version of the Solar Cricket firmware
+VERSION = "1.2.2"  # version of the Solar Cricket firmware
 DFPLAYER_VERSION = True  # set to False to use PWM chirps instead of DFPlayer
 SENSOR = ADC(26)   # analog input for light level
 LED = Pin("LED", Pin.OUT)      # digital output for status LED
-DUSK_DELAY = 30   # minutes after nightfall to wait before chirping
-CHIRP_WINDOW_LOW = 20  # minimum chirp window in minutes
-CHIRP_WINDOW_HIGH = 40 # maximum chirp window in minutes
+DUSK_DELAY = 0.1   # minutes after nightfall to wait before chirping
+CHIRP_WINDOW_LOW = 0.2  # minimum chirp window in minutes
+CHIRP_WINDOW_HIGH = 0.4 # maximum chirp window in minutes
 DEFAULT_LIGHT_HIGH = 50000  # default high light level
 DEFAULT_LIGHT_LOW = 1000   # default low light level
-FORCE_UPDATE_DELAY = 28 # hours before forcing light level average update
-NIGHT_SLEEP = 22  # hours to sleep before checking for daylight
-DAY_SLEEP = 15     # minutes to sleep during daylight
-SHORT_SLEEP = 2    # minutes to sleep during nightdelay and chirpwindow
+FORCE_UPDATE_DELAY = 0.25 # hours before forcing light level average update
+NIGHT_SLEEP = 0  # hours to sleep before checking for daylight
+DAY_SLEEP = 0.05     # minutes to sleep during daylight
+SHORT_SLEEP = 0.05    # minutes to sleep during nightdelay and chirpwindow
+
+# DUSK_DELAY = 30   # minutes after nightfall to wait before chirping
+# CHIRP_WINDOW_LOW = 20  # minimum chirp window in minutes
+# CHIRP_WINDOW_HIGH = 40 # maximum chirp window in minutes
+# DEFAULT_LIGHT_HIGH = 50000  # default high light level
+# DEFAULT_LIGHT_LOW = 1000   # default low light level
+# FORCE_UPDATE_DELAY = 28 # hours before forcing light level average update
+# NIGHT_SLEEP = 22  # hours to sleep before checking for daylight
+# DAY_SLEEP = 15     # minutes to sleep during daylight
+# SHORT_SLEEP = 2    # minutes to sleep during nightdelay and chirpwindow
 
 mode='DAY'  # initial mode
 sunset_time = 0  # time of sunset in milliseconds
@@ -64,14 +74,14 @@ class LightLevels:
         self.reset()  # reset for next day
 
     def increase_low_avg (self):
-        # increase the low average by 100%
-        self.avg_low = int(self.avg_low * 2)
+        # increase the low average by 1%
+        self.avg_low = int(self.avg_low * 1.01)
         self.store_avg() # store the averages to file
         self.reset()  # reset for next day
 
     def read_min_light (self):
         # return minimum light level to trigger night modes
-        return max(self.avg_high * 0.1, self.avg_low + (self.avg_low * 0.2))
+        return max(self.avg_high * 0.05, self.avg_low + (self.avg_low * 0.2))
     
     def store_avg (self):
         # store average to file
@@ -146,7 +156,7 @@ def cricket():
     if chirp_number is not None:
         for i in range(chirp_number):
             mp3_chirp(player)
-            sleep_ms(randrange(100, 150))
+            sleep_ms(randrange(200, 250))
 
 def mp3_chirp(player):
     print(f"Playing chirp {current_chirp}")
@@ -158,7 +168,7 @@ def light_level():
     # return an integer from 0 (dark) to 65535 (bright)
     return SENSOR.read_u16()
 
-def store_cricket(current_chirp):
+def store_cricket(filename):
     try:
         with open("last_cricket.txt", "w") as f:
             f.write(f"{current_chirp}\n")
@@ -168,7 +178,7 @@ def store_cricket(current_chirp):
 def check_state(mode):
     global sunset_time, chirp_window, current_chirp
     min_light = light_levels.read_min_light()
-    if ticks_ms() > sunset_time + (FORCE_UPDATE_DELAY * 60 * 60 * 1000):
+    if ticks_ms() > sunset_time + int(FORCE_UPDATE_DELAY * 60 * 60 * 1000) and light_level() < 60000 and min_light < 60000:
         light_levels.increase_low_avg()  # doubles the low average
         print(f"Forcing light level average increase after {FORCE_UPDATE_DELAY} hours")
         sunset_time = ticks_ms()  # reset the timer
@@ -185,25 +195,26 @@ def check_state(mode):
         elif (ticks_ms() - sunset_time) > DUSK_DELAY * 60 * 1000:
             print("It's dark, switching to NIGHT_CHIRP")
             current_chirp = randn_int(1, count_files(folder=1))  # select a random chirp file
-            store_cricket(current_chirp)  # store the last chirp number to file
-            chirp_window = randrange(CHIRP_WINDOW_LOW, CHIRP_WINDOW_HIGH)  # random chirp window
+            chirp_window = uniform(CHIRP_WINDOW_LOW, CHIRP_WINDOW_HIGH)  # random chirp window
             print(f"Chirp window is {chirp_window} minutes")
             mode = 'NIGHT_CHIRP'
         else:
             print("It's dusk, staying in DUSK")
     elif mode == 'NIGHT_CHIRP':
         time_remaining = (DUSK_DELAY + chirp_window) * 60 * 1000 - (ticks_ms() - sunset_time)
-        print(f"{time_remaining // 1000} secs of chirps remain")
+        print(f"{time_remaining // 1000} secs of chrips remain")
         # Check if it's time to stop chirping
         if (ticks_ms() - sunset_time) > (DUSK_DELAY + chirp_window) * 60 * 1000:
             print("Chirping done, switching to NIGHT_SLEEP")
+            light_levels.update(light_level()) # update light levels
             mode = 'NIGHT_SLEEP'
         else:
            print("Staying in NIGHT_CHIRP")
     elif mode == 'NIGHT_SLEEP':
         # Check if it's time to wake up
-        mode = 'DAY'
-        light_levels.update_avg()  # update the averages for the day
+        if light_level() > 60000:
+            mode = 'DAY'
+            light_levels.update_avg()  # update the averages for the day
     print(f"Min light level is {min_light}")
     return mode
 
@@ -211,16 +222,16 @@ def do_actions(mode):
     if mode == 'DAY':
         print("day sleep...")
         sleep_ms(10)  # wait for serial to complete
-        lightsleep(DAY_SLEEP * 60 * 1000)  # sleep during the day
+        lightsleep(int(DAY_SLEEP * 60 * 1000))  # sleep during the day
     elif mode == 'DUSK':
         print("dusk sleep...")
         sleep_ms(10)  # wait for serial to complete
-        lightsleep(SHORT_SLEEP * 60 * 1000) # sleep during night delay
+        lightsleep(int(SHORT_SLEEP * 60 * 1000)) # sleep during night delay
     elif mode == 'NIGHT_CHIRP':
         print("chirping")
         cricket()
         sleep_ms(10)  # wait for serial to complete
-        lightsleep(randrange(10000,300000))  # sleep for random period
+        lightsleep(randrange(2000,5000))  # sleep for random period
     elif mode == 'NIGHT_SLEEP':
         print("night sleep...")
         sleep_ms(10)  # wait for serial to complete
@@ -229,7 +240,8 @@ def do_actions(mode):
             print(f"Sleeping for hour {hour + 1} of {NIGHT_SLEEP}")
             sleep_ms(10)  # wait for serial to complete
             lightsleep(60 * 60 * 1000)  # sleep one hour repeatedly
-        print("night sleep done, waking up")
+        sleep_ms(2000)
+        print("night sleep done, try waking up")
     else:
         print("mode unknown")
  
