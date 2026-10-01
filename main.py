@@ -193,7 +193,7 @@ def check_state(mode):
             print("It's dusk, staying in DUSK")
     elif mode == 'NIGHT_CHIRP':
         time_remaining = (DUSK_DELAY + chirp_window) * 60 * 1000 - (ticks_ms() - sunset_time)
-        print(f"{time_remaining // 1000} secs of chrips remain")
+        print(f"{time_remaining // 1000} secs of chirps remain")
         # Check if it's time to stop chirping
         if (ticks_ms() - sunset_time) > (DUSK_DELAY + chirp_window) * 60 * 1000:
             print("Chirping done, switching to NIGHT_SLEEP")
