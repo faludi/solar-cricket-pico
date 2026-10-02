@@ -81,7 +81,7 @@ class LightLevels:
 
     def read_min_light (self):
         # return minimum light level to trigger night modes
-        return max(self.avg_high * 0.05, self.avg_low + (self.avg_low * 0.2))
+        return max(self.avg_high * 0.3, self.avg_low + (self.avg_low * 0.2))
     
     def store_avg (self):
         # store average to file
