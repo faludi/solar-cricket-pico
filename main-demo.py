@@ -4,7 +4,7 @@ from random import seed, randrange, random, uniform
 import math
 from picodfplayer import DFPlayer
 
-VERSION = "1.2.2"  # version of the Solar Cricket firmware
+VERSION = "1.2.4"  # version of the Solar Cricket firmware
 DFPLAYER_VERSION = True  # set to False to use PWM chirps instead of DFPlayer
 SENSOR = ADC(26)   # analog input for light level
 LED = Pin("LED", Pin.OUT)      # digital output for status LED
@@ -17,6 +17,8 @@ FORCE_UPDATE_DELAY = 0.25 # hours before forcing light level average update
 NIGHT_SLEEP = 0  # hours to sleep before checking for daylight
 DAY_SLEEP = 0.05     # minutes to sleep during daylight
 SHORT_SLEEP = 0.05    # minutes to sleep during nightdelay and chirpwindow
+
+print("DEMO MODE ACTIVE - Solar Cricket Firmware Version", VERSION)
 
 # DUSK_DELAY = 30   # minutes after nightfall to wait before chirping
 # CHIRP_WINDOW_LOW = 20  # minimum chirp window in minutes
