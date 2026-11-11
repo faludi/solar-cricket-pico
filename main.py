@@ -21,7 +21,6 @@ SHORT_SLEEP = 2    # minutes to sleep during nightdelay and chirpwindow
 mode='DAY'  # initial mode
 sunset_time = 0  # time of sunset in milliseconds
 current_chirp = 1  # index of current chirp file (DFPlayer index starts at 1)
-freq(125000000)  # use default CPU freq
 seed()  # start with a truly random seed
 
 chirp_window = 30  # initial chirp window in minutes (randomised later)
@@ -36,6 +35,8 @@ class LightLevels:
     def __init__(self):
         self.avg_high = DEFAULT_LIGHT_HIGH
         self.avg_low = DEFAULT_LIGHT_LOW
+        self.high_history = [DEFAULT_LIGHT_HIGH] * 6  # 6-day history for moving average
+        self.low_history = [DEFAULT_LIGHT_LOW] * 6    # 6-day history for moving average
         self.load_avg()  # load previous averages from file
         print(f"Loaded avg high {self.avg_high} and low {self.avg_low}")
         # today's high and low start at extremes
@@ -57,10 +58,16 @@ class LightLevels:
         self.today_low = 65535 
 
     def update_avg (self):
-        # simple moving average
-        self.avg_high = (self.avg_high * 6 + self.today_high) // 7
-        self.avg_low = (self.avg_low * 6 + self.today_low) // 7
-        self.store_avg() # store the averages to file
+        # 7-day moving average: 6 previous days + today
+        self.high_history.pop(0)  # remove oldest day
+        self.high_history.append(self.today_high)  # add today
+        self.avg_high = sum(self.high_history) // 7
+        
+        self.low_history.pop(0)  # remove oldest day
+        self.low_history.append(self.today_low)  # add today
+        self.avg_low = sum(self.low_history) // 7
+        
+        self.store_avg()  # store the averages and history to file
         self.reset()  # reset for next day
 
     def increase_low_avg (self):
@@ -74,22 +81,40 @@ class LightLevels:
         return max(self.avg_high * 0.1, self.avg_low + (self.avg_low * 0.2))
     
     def store_avg (self):
-        # store average to file
+        # store average and history to file
         try:
             with open("light_levels.txt", "w") as f:
-                f.write(f"{self.avg_low},{self.avg_high}\n")
+                low_str = ','.join(str(x) for x in self.low_history)
+                high_str = ','.join(str(x) for x in self.high_history)
+                f.write(f"{low_str}|{high_str}\n")
         except Exception as e:
             print("Error storing light levels:", e)
 
     def load_avg (self):
-        # load average from file
+        # load average and history from file
         try:
             with open("light_levels.txt", "r") as f:
-                line = f.readline()
-                parts = line.split(",")
-                if len(parts) == 2:
-                    self.avg_low = int(parts[0])
-                    self.avg_high = int(parts[1])
+                line = f.readline().strip()
+                if '|' in line:
+                    # New format with history
+                    parts = line.split('|')
+                    if len(parts) == 2:
+                        low_values = [int(x) for x in parts[0].split(',')]
+                        high_values = [int(x) for x in parts[1].split(',')]
+                        if len(low_values) == 6 and len(high_values) == 6:
+                            self.low_history = low_values
+                            self.high_history = high_values
+                            self.avg_low = sum(self.low_history) // 7
+                            self.avg_high = sum(self.high_history) // 7
+                elif ',' in line:
+                    # Old format: avg_low,avg_high (for backwards compatibility)
+                    parts = line.split(',')
+                    if len(parts) == 2:
+                        self.avg_low = int(parts[0])
+                        self.avg_high = int(parts[1])
+                        # Initialize history with current averages
+                        self.low_history = [self.avg_low] * 6
+                        self.high_history = [self.avg_high] * 6
         except OSError:
             print("No previous light levels found, using defaults")
             
@@ -119,13 +144,6 @@ def blink(led, count, period_ms):
         led.value(0)
         sleep_ms(period_ms // 2)
 
-def beep(pwm_channel, freq, duration_ms):
-    """Beep a PWM channel at a given frequency for a duration."""
-    pwm_channel.freq(freq)
-    pwm_channel.duty_u16(32768)  # half duty cycle
-    sleep_ms(duration_ms)
-    pwm_channel.duty_u16(0)  # turn off the PWM
-    pwm_channel.freq(10)  # reset frequency to a low value
 
 def count_files(folder=1):
     """Count the number of files on the DFPlayer."""
